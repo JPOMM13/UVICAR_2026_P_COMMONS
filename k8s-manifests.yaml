@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: m2m-sims-api
+  labels:
+    app: m2m-sims-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: m2m-sims-api
+  template:
+    metadata:
+      labels:
+        app: m2m-sims-api
+    spec:
+      containers:
+      - name: sims-api
+        image: <tu-registro-azure>.azurecr.io/m2m-sims-api:latest
+        ports:
+        - containerPort: 5001
+        env:
+        - name: SMARTM2M_USER
+          valueFrom:
+            secretKeyRef:
+              name: m2m-secrets
+              key: SMARTM2M_USER
+        - name: SMARTM2M_PASS
+          valueFrom:
+            secretKeyRef:
+              name: m2m-secrets
+              key: SMARTM2M_PASS
+        # Opcional: Persistencia para la caché
+        volumeMounts:
+        - name: cache-volume
+          mountPath: /app/data
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5001
+          initialDelaySeconds: 30
+          periodSeconds: 60
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5001
+          initialDelaySeconds: 15
+          periodSeconds: 20
+      volumes:
+      - name: cache-volume
+        emptyDir: {} # Cambiar por un PersistentVolumeClaim si se desea persistencia real entre reinicios del Pod
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: m2m-sims-api-service
+spec:
+  type: ClusterIP
+  selector:
+    app: m2m-sims-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5001
